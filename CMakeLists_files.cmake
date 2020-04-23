@@ -105,11 +105,13 @@ list (APPEND EXAMPLE_SOURCE_FILES
   examples/upscale_cap.cpp
   examples/upscale_cond.cpp
   examples/upscale_perm.cpp
+  examples/upscale_permeability_tensor.cpp
   examples/upscale_relperm.cpp
   examples/upscale_relpermvisc.cpp
   examples/upscale_singlephase.cpp
   examples/upscale_steadystate_implicit.cpp
   examples/upscale_elasticity.cpp
+  examples/one_step_transport_solver.cpp
   tests/compareUpscaling.cpp
 )
 
