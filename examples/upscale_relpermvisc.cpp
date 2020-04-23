@@ -154,6 +154,70 @@ void usageandexit() {
     std::exit(EXIT_FAILURE);
 }
 
+//! \brief Return eclipse-style output filename.
+//! \param[in] opfname Base output file name.
+//! \param[in] comp Component (X, Y, Z).
+//! \param[in] sat Fluid system type.
+//! \return Eclipse-style filename for requested component/fluid system combination.
+static std::string getEclipseOutputFile(const std::string& opfname, char comp, char sat)
+{
+    string fnbase = opfname.substr(0,opfname.find_last_of('.'));
+    return fnbase + "-" +comp + ".S" + sat + "OF";
+}
+
+
+//! \brief Write eclipse-style output file.
+//! \param[in] RelPermValues RelPerm values to write.
+//! \param[in] Satvalues Saturation values to write.
+//! \param[in] Pvalues Pressure values to write.
+//! \param[in] options Option structure.
+//! \param[in] component Component to write (0..2).
+//! \param[in] owsystem Fluid system type.
+  template<class Lazy>
+static void writeEclipseOutput(Lazy& RelPermValues,
+                               const std::vector<double>& Satvalues,
+                               const std::vector<double>& Pvalues,
+                               std::map<std::string,std::string>& options,
+                               int component, bool owsystem)
+{
+    std::stringstream swof;
+    char sat                  = (owsystem?'W':'G');
+    char comp                 = 'x'+component;
+    std::string krowstring = std::string("krow") + comp + "swirr";
+    double krowswirr = atof(options[krowstring].c_str());
+    const int outputprecision = atoi(options["outputprecision"].c_str());
+    const int fieldwidth      = outputprecision + 8;
+
+    // x-direction
+    swof << "-- This file is based on the results in " << endl
+         << "-- " << options["output"] << endl
+         << "-- for relperm in " << comp << "-direction." << endl
+         << "-- Pressure values (Pc) given in bars." << endl
+         << "--        S" << (char)std::tolower(sat) << "       Kr"
+                          << (char)std::tolower(sat) << comp << comp
+                          << "      Kro" << (char)std::tolower(sat) << comp << comp
+                          << "      Pc(bar)" << endl
+         << "--S" << sat << "OF" << endl;
+    if (krowswirr > 0) {
+        swof << showpoint << setw(fieldwidth) << setprecision(outputprecision) << 0
+             << showpoint << setw(fieldwidth) << setprecision(outputprecision) << 0
+             << showpoint << setw(fieldwidth) << setprecision(outputprecision) << krowswirr
+             << showpoint << setw(fieldwidth) << setprecision(outputprecision) << 0 << endl;
+    }
+    for (size_t i=0; i < Satvalues.size(); ++i) {
+        swof << showpoint << setw(fieldwidth) << setprecision(outputprecision) << Satvalues[i]
+             << showpoint << setw(fieldwidth) << setprecision(outputprecision) << RelPermValues[0][component][i]
+             << showpoint << setw(fieldwidth) << setprecision(outputprecision) << RelPermValues[1][component][i]
+             << showpoint << setw(fieldwidth) << setprecision(outputprecision) << Pvalues[i]/100000.0 << endl;
+    }
+    swof << "/" << endl;
+    std::ofstream file;
+    file.open(getEclipseOutputFile(options["output"], std::toupper(comp), sat),
+                                   std::ios::out | std::ios::trunc);
+    file << swof.str();
+    file.close();
+}
+
 } // namespace anonymous
 
 int main(int varnum, char** vararg)
@@ -521,11 +585,11 @@ try
                     if (isMaster) cerr << "Check filename and -waterCurve" << endl;
                     usageandexit();
                 }
-                if (!Krwtmp.isStrictlyMonotone()) {
-                    if (isMaster) cerr << "Error: Data in column " << relPermCurves[waterPhaseIndex] << " of file " << ROCKFILENAME << endl <<
-                        "       was not strictly monotone. Exiting." << endl;
-                    usageandexit();
-                }
+//                if (!Krwtmp.isStrictlyMonotone()) {
+//                    if (isMaster) cerr << "Error: Data in column " << relPermCurves[waterPhaseIndex] << " of file " << ROCKFILENAME << endl <<
+//                        "       was not strictly monotone. Exiting." << endl;
+//                    usageandexit();
+//                }
                 MonotCubicInterpolator Krotmp;
                 try {
                     Krotmp = MonotCubicInterpolator(ROCKFILENAME, 1, relPermCurves[oilPhaseIndex]); 
@@ -536,11 +600,11 @@ try
                     usageandexit();
                 }
                 
-                if (!Krotmp.isStrictlyMonotone()) {
-                    if (isMaster) cerr << "Error: Data in column " << relPermCurves[oilPhaseIndex] << " of file " << ROCKFILENAME << endl <<
-                        "       was not strictly monotone. Exiting." << endl;
-                    usageandexit();
-                }
+//                if (!Krotmp.isStrictlyMonotone()) {
+//                    if (isMaster) cerr << "Error: Data in column " << relPermCurves[oilPhaseIndex] << " of file " << ROCKFILENAME << endl <<
+//                        "       was not strictly monotone. Exiting." << endl;
+//                    usageandexit();
+//                }
                 
                 if ((Krwtmp.isStrictlyIncreasing() && Krotmp.isStrictlyIncreasing()) || (Krwtmp.isStrictlyDecreasing() && Krotmp.isStrictlyDecreasing())) {
                     if (isMaster) cerr << "Error: Input relperm curves are both increasing or decreasing in file " << ROCKFILENAME << endl;
@@ -1086,14 +1150,14 @@ try
     
     // Now we can also invert the upscaled water saturation
     // (it should be monotonic)
-    if (!WaterSaturationVsFractionalFlow.isStrictlyMonotone()) {
-        if (isMaster) {
-            cout << WaterSaturationVsFractionalFlow.toString();
-            cerr << "Error: Upscaled water saturation not strictly monotone in fractional flow ratio." << endl;
-            cerr << "       Unphysical input data, exiting." << endl;
-        }
-        usageandexit();
-    }
+    //if (!WaterSaturationVsFractionalFlow.isStrictlyMonotone()) {
+    //    if (isMaster) {
+    //        cout << WaterSaturationVsFractionalFlow.toString();
+    //        cerr << "Error: Upscaled water saturation not strictly monotone in fractional flow ratio." << endl;
+    //        cerr << "       Unphysical input data, exiting." << endl;
+    //    }
+    //    usageandexit();
+    //}
     MonotCubicInterpolator FractionalFlowVsWaterSaturation(WaterSaturationVsFractionalFlow.get_fVector(), 
                                                            WaterSaturationVsFractionalFlow.get_xVector());
     
@@ -1515,25 +1579,25 @@ try
        }
        outheadtmp << "# " << endl;
        outheadtmp << "# Single phase permeability" << endl;
-       outheadtmp << "#  |Kxx  Kxy  Kxz| = " << permTensor(0,0) << "  " << permTensor(0,1) << "  " << permTensor(0,2) << endl;
-       outheadtmp << "#  |Kyx  Kyy  Kyz| = " << permTensor(1,0) << "  " << permTensor(1,1) << "  " << permTensor(1,2) << endl;
-       outheadtmp << "#  |Kzx  Kzy  Kzz| = " << permTensor(2,0) << "  " << permTensor(2,1) << "  " << permTensor(2,2) << endl;
+       outheadtmp << "#  |Kxx  Kxy  Kxz| = " << permTensor(0,0) << "          " << permTensor(0,1) << "          " << permTensor(0,2) << endl;
+       outheadtmp << "#  |Kyx  Kyy  Kyz| = " << permTensor(1,0) << "          " << permTensor(1,1) << "          " << permTensor(1,2) << endl;
+       outheadtmp << "#  |Kzx  Kzy  Kzz| = " << permTensor(2,0) << "          " << permTensor(2,1) << "          " << permTensor(2,2) << endl;
        outheadtmp << "# " << endl;
        if (doInterpolate) { 
            outheadtmp << "# NB: Data points shown are interpolated." << endl; 
        } outheadtmp << "######################################################################" << endl;
        
        if (isFixed) {
-           outwatertmp << "#     v_w/v_o          Sw          Krwxx         Krwyy         Krwzz" << endl;
-           outoiltmp   << "#     v_w/v_o          Sw          Kroxx         Kroyy         Krozz" << endl;
+           outwatertmp << "#          v_w/v_o          Sw          Krwxx         Krwyy         Krwzz" << endl;
+           outoiltmp   << "#          v_w/v_o          Sw          Kroxx         Kroyy         Krozz" << endl;
        }
        else if (isLinear) {
-           outwatertmp << "#     v_w/v_o          Sw          Krwxx         Krwyy         Krwzz         Krwyz         Krwxz         Krwxy         Krwzy         Krwzx         Krwyx" << endl;
-           outoiltmp   << "#     v_w/v_o          Sw          Kroxx         Kroyy         Krozz         Kroyz         Kroxz         Kroxy         Krozy         Krozx         Kroyx" << endl;
+           outwatertmp << "#          v_w/v_o          Sw          Krwxx         Krwyy         Krwzz         Krwyz         Krwxz         Krwxy         Krwzy         Krwzx         Krwyx" << endl;
+           outoiltmp   << "#          v_w/v_o          Sw          Kroxx         Kroyy         Krozz         Kroyz         Kroxz         Kroxy         Krozy         Krozx         Kroyx" << endl;
        }
        else if (isPeriodic) {
-           outwatertmp << "#     v_w/v_o          Sw          Krwxx         Krwyy         Krwzz         Krwyz         Krwxz         Krwxy         Krwzy         Krwzx         Krwyx" << endl;
-           outoiltmp   << "#     v_w/v_o          Sw          Kroxx         Kroyy         Krozz         Kroyz         Kroxz         Kroxy         Krozy         Krozx         Kroyx" << endl;
+           outwatertmp << "#          v_w/v_o          Sw          Krwxx         Krwyy         Krwzz         Krwyz         Krwxz         Krwxy         Krwzy         Krwzx         Krwyx" << endl;
+           outoiltmp   << "#          v_w/v_o          Sw          Kroxx         Kroyy         Krozz         Kroyz         Kroxz         Kroxy         Krozy         Krozx         Kroyx" << endl;
        }
        
        // If user wants interpolated output, do monotone cubic interpolation 
@@ -1586,11 +1650,11 @@ try
        
        
        for (unsigned int i=0; i < WaterSaturation.size(); ++i) {
-           outwatertmp << showpoint << setw(14) << fracFlowRatioPoints[i];
-           outwatertmp << showpoint << setw(14) << WaterSaturation[i];
+           outwatertmp << showpoint << "          " << fracFlowRatioPoints[i];
+           outwatertmp << showpoint << "          " << WaterSaturation[i];
            
            for (int voigtIdx=0; voigtIdx < tensorElementCount; ++voigtIdx) {
-               outwatertmp << showpoint << setw(14)  << RelPermValues[waterPhaseIndex][voigtIdx][i];              
+               outwatertmp << showpoint << "          "  << RelPermValues[waterPhaseIndex][voigtIdx][i];
            }
            outwatertmp << endl;
            
@@ -1599,11 +1663,11 @@ try
        }
        
        for (unsigned int i=0; i < WaterSaturation.size(); ++i) {
-           outoiltmp << showpoint << setw(14) << fracFlowRatioPoints[i];
-           outoiltmp << showpoint << setw(14) << WaterSaturation[i];     
+           outoiltmp << showpoint << "          " << fracFlowRatioPoints[i];
+           outoiltmp << showpoint << "          " << WaterSaturation[i];
            
            for (int voigtIdx=0; voigtIdx < tensorElementCount; ++voigtIdx) {
-               outoiltmp << showpoint << setw(14) << RelPermValues[oilPhaseIndex][voigtIdx][i];              
+               outoiltmp << showpoint << "          " << RelPermValues[oilPhaseIndex][voigtIdx][i];
            }
            outoiltmp << endl;
            

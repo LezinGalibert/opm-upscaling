@@ -244,16 +244,16 @@ static void writeEclipseOutput(Lazy& RelPermValues,
                           << "      Pc(bar)" << endl
          << "--S" << sat << "OF" << endl;
     if (krowswirr > 0) {
-        swof << showpoint << setw(fieldwidth) << setprecision(outputprecision) << 0
-             << showpoint << setw(fieldwidth) << setprecision(outputprecision) << 0
-             << showpoint << setw(fieldwidth) << setprecision(outputprecision) << krowswirr
-             << showpoint << setw(fieldwidth) << setprecision(outputprecision) << 0 << endl;
+        swof << showpoint << "          " << setprecision(outputprecision) << 0
+             << showpoint << "          " << setprecision(outputprecision) << 0
+             << showpoint << "          " << setprecision(outputprecision) << krowswirr
+             << showpoint << "          " << setprecision(outputprecision) << 0 << endl;
     }
     for (size_t i=0; i < Satvalues.size(); ++i) {
-        swof << showpoint << setw(fieldwidth) << setprecision(outputprecision) << Satvalues[i]
-             << showpoint << setw(fieldwidth) << setprecision(outputprecision) << RelPermValues[0][component][i]
-             << showpoint << setw(fieldwidth) << setprecision(outputprecision) << RelPermValues[1][component][i]
-             << showpoint << setw(fieldwidth) << setprecision(outputprecision) << Pvalues[i]/100000.0 << endl;
+        swof << showpoint << "          " << setprecision(outputprecision) << Satvalues[i]
+             << showpoint << "          " << setprecision(outputprecision) << RelPermValues[0][component][i]
+             << showpoint << "          " << setprecision(outputprecision) << RelPermValues[1][component][i]
+             << showpoint << "          " << setprecision(outputprecision) << Pvalues[i]/100000.0 << endl;
     }
     swof << "/" << endl;
     std::ofstream file;
